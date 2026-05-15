@@ -1,192 +1,226 @@
 ﻿---
 name: academic-paper-interpreter
-description: A high-fidelity, process-driven academic analysis tool. It utilizes a Multi-Agent Swarm and Visual-First strategy to deconstruct PDFs into structured, peer-review-grade Markdown reports.
+description: "Analyze academic papers at your chosen depth: get a quick archetype classification, a structured summary with figure analysis, an in-depth methodology and reference audit, or a full peer-review-grade assessment with quality-verified conclusions. Helps you understand what a paper says, whether its claims hold up, and whether it's worth adopting or replicating."
 metadata:
+  language: en
   requires:
     bins: []
-    skills: ["superpowers:executing-plans", "superpowers:dispatching-parallel-agents", "pdf-figure-extractor"]
+    skills:
+      - "superpowers:executing-plans"
+      - "superpowers:dispatching-parallel-agents"
+      - "pdf-figure-extractor"
     mcp:
       - mineru
 ---
 
-# Academic Paper Interpreter
+# Academic Paper Interpreter — SSL Architecture
 
-## Skill Overview
-This skill transforms raw PDFs into a structured "Logic Map" by leveraging the **mineru MCP** for layout fidelity and a phased **Sub-agent Swarm** for cognitive analysis. It prioritizes "Semantic DNA"—preserving complex equations, quantitative tables, and visual evidence chains.
+## Scheduling Layer
 
-## Execution Overview
-The skill operates through a 6-phase pipeline, adapting analysis based on paper archetype. Each phase builds on the previous, culminating in comprehensive deliverables.
+### Skill Identity
+- **skill_id**: academic-paper-interpreter
+- **skill_goal**: Transform academic papers into structured, peer-review-grade analysis reports
+- **intent_signature**: User provides path to mineru-processed PDF markdown → skill produces structured analysis at chosen depth in configured language (default: en, supports: zh)
 
-## Prerequisites
-- **Input**: PDF file path for processing via mineru MCP
-- **Tools**: Access to mineru MCP, semantic search, file reading, sub-agent dispatching
-- **Dependencies**: Ensure mineru MCP is configured and available
+### Architecture Overview
 
-## Core Dependencies
-* **Parser**: `mineru MCP` (Native Markdown output via Model Context Protocol).
-* **Fidelity**: Strict preservation of **LaTeX** ($inline$ and $$block$$) and **Markdown Tables**.
-* **Agent Logic**: Orchestrator-Worker model for section-specific deep dives.
+This skill uses a **three-layer SSL representation** (Scheduling / Structural / Logical):
 
-## The Deep Reading Pipeline
+```
+┌─────────────────────────────────────────────┐
+│ Scheduling Layer (SKILL.md)                  │
+│ - Entry routing & intent matching            │
+│ - Archetype definitions                      │
+│ - Execution guardrails                       │
+├─────────────────────────────────────────────┤
+│ Structural Layer (scenes/ + _scene-graph.md)  │
+│ - Scene DAG with depth levels L0-L3          │
+│ - Auto/manual transition gates               │
+│ - Parallel execution at L2 and L3            │
+├─────────────────────────────────────────────┤
+│ Logical Layer (_logic/)                       │
+│ - Closed vocabulary act types (9 types)      │
+│ - Resource scope definitions (4 scopes)      │
+└─────────────────────────────────────────────┘
+```
 
-### Phase 0: Archetype Detection (Pre-flight)
-Performs surface scan and archetype classification to adapt subsequent phases. [Details](phase-0-archetype-detection.md)
+### Language Configuration
+All output files (SUMMARY_CARD.md, FIGURE_LOGS.md, SECTION_SUMMARIES.md, METHODOLOGY_CARD.md, REFERENCE_MAP.md, REVIEW_CARD.md, AUDIT_REPORT.md, CONCLUSION_CARD.md) MUST be written in the configured language.
 
-### Phase 1: Reconnaissance (Visual-First)
-Establishes "What" and "Where" using a visual-first strategy. [Details](phase-1-reconnaissance.md)
+| Field | Value |
+|-------|-------|
+| `language` | `en` (English, default) or `zh` (Chinese, 中文) |
+| Propagation | Language setting is passed to EVERY scene agent and sub-agent |
+| Scope | All output files — the analysis text, tables, headings, and summaries |
+| Source material | The mineru markdown stays in its original language; only the analysis/report output is affected |
+| Adding languages | Extend by adding new entries to this table; each scene's directive enforces the active language |
 
-### Phase 2: Structural Decomposition (Sub-agent Swarm)
-High-granularity extraction using four quadrants for section analysis. [Details](phase-2-structural-decomposition.md)
+**Usage**: User specifies language when invoking (e.g., "interpret this paper in Chinese" or set `language: zh`). Default is English (`en`).
 
-### Phase 3: Technical Archeology (Deep Dive)
-Deconstructs the technical stack and reference lineage. [Details](phase-3-technical-archeology.md)
+### Depth Levels
 
-### Phase 4: Consistency Audit (Peer Review)
-Validates robustness and detects logical leaps. [Details](phase-4-consistency-audit.md)
+| Level | Name | Scenes | Outputs |
+|-------|------|--------|---------|
+| L0 | Surface Scan | PREPARE | archetype.json |
+| L1 | Core Understanding | ACQUIRE → REASON (section) | SUMMARY_CARD.md, FIGURE_LOGS.md, SECTION_SUMMARIES.md |
+| L2 | Deep Analysis | REASON (tech-stack, ref-lineage) + VERIFY (evidence-check) | METHODOLOGY_CARD.md, REFERENCE_MAP.md |
+| L3 | Audit + Synthesis | VERIFY (consistency-audit, output-audit) + FINALIZE (conclusion) | REVIEW_CARD.md, AUDIT_REPORT.md, CONCLUSION_CARD.md |
 
-### Phase 5: Conclusion Synthesis (The Verdict)
-Distills final findings into actionable insights. [Details](phase-5-conclusion-synthesis.md)
+### Scene Graph
 
-## Tool Integration for Claude Code
-- **PDF Processing**: Use **mineru MCP** for initial PDF parsing and extraction
-- **Figure Extraction**: Use `pdf-figure-extractor` skill in Phase 1 to extract figures and embed them in FIGURE_LOGS.md
-- **Content Analysis**: Employ `semantic_search` and `grep_search` for keyword and pattern detection
-- **Parallel Processing**: Leverage `runSubagent` for phase 2 section analysis
-- **File Operations**: Use `read_file` and `create_file` for input/output handling
-- **Image Analysis**: Apply `view_image` for figure interpretation when available
+```
+L0: PREPARE ──auto──► L1: ACQUIRE ──auto──► REASON (section-analysis)
+                                                    │
+                                              manual gate ◄── user reviews L1 outputs
+                                                    │
+                              ┌─────────────────────┼─────────────────────┐
+                              ▼                     ▼                     ▼
+L2:                    REASON (tech-stack)   REASON (ref-lineage)   VERIFY (evidence-check)
+                              │                     │                     │
+                              └─────────────────────┼─────────────────────┘
+                                                      ▼
+                                                manual gate ◄── user reviews L2 findings
+                                                      │
+                              ┌─────────────────────────┴─────────────────────────┐
+                              ▼                                                   ▼
+L3:         Primary Track: VERIFY (consistency-audit) ──► FINALIZE (conclusion)
+                              Meta Track: VERIFY (output-audit) ──────────────────┘
+```
 
-## Step-by-Step Execution
-1. **Initialize**: Load PDF content via mineru MCP
-2. **Phase 0**: Classify archetype using surface scan
-3. **Phase 1**: Extract visual insights and create summary cards
-4. **Phase 2**: Dispatch sub-agents for quadrant-based section analysis
-5. **Phase 3**: Map technical implementation and references
-6. **Phase 4**: Perform cross-validation and identify challenges
-7. **Phase 5**: Synthesize final recommendations
+### Transition Rules
+- **Auto**: L0→L1, L1 internal, L2 internal, L3 internal
+- **Manual gates**: L1→L2 entry, L2→L3 entry
+  - At each gate: show user a summary of current level's findings
+  - Offer: proceed all / select specific scenes / stop
 
-## Deliverables Summary
-Generate a comprehensive Markdown report with the following structure:
+### ⛔ Strict Execution Mandate (Anti-Corner-Cutting)
+These rules are ABSOLUTE. Every scene at every depth level MUST obey:
 
-| File | Primary Focus | Content Highlights |
-| :--- | :--- | :--- |
-| `SUMMARY_CARD.md` | Executive View | Core contribution, Quantitative data, Boundaries. |
-| `FIGURE_LOGS.md` | Visual Logic | Caption analysis, Takeaways, Evidence linkage. |
-| `SECTION_SUMMARIES.md` | Granular Detail | Four Quadrant summaries for every chapter. |
-| `METHODOLOGY_CARD.md` | Replicability | Workflow mapping, Technical stack, LaTeX formulas. |
-| `REFERENCE_MAP.md` | Lineage Mapping | "Circled" references based on archetype logic. |
-| `REVIEW_CARD.md` | Critical Audit | Novelty vs. SOTA, Data integrity, Peer-review questions. |
-| `CONCLUSION_CARD.md` | Final Verdict | Actionable insights, Final findings, Key quotes. |
+1. **Execute ALL logic steps, in order** — every step in a scene's logic step table. Do NOT skip, merge, reorder, or shortcut any step. "Reading and summarizing" is NOT the same as "executing."
 
-## Execution Guardrails
-1. **Symbolic Precision**: Never corrupt LaTeX syntax during summarization.
-2. **Zero Hallucination**: If a parameter isn\'t in the MinerU data, mark it as **"Not Disclosed"**.
-3. **Sub-agent Independence**: Each section agent must treat its section as a standalone "micro-project".
-4. **Structure**: Maintain cross-reference anchoring between text claims and Figure IDs.
-5. **Final Synthesis**: The Conclusion Card must be a distillation of all previous cards.
+2. **Each WRITE step produces a real file on disk** — complete, no placeholders, no "TODOs", no abbreviated content.
 
-## Claude Code Best Practices
-- Execute phases sequentially, passing context between them
-- Use archetype classification to prioritize analysis focus
-- Maintain evidence-based reasoning throughout
-- Preserve all mathematical notation and technical details
-- Generate outputs in specified Markdown format
-- Cross-validate findings across phases for consistency
+3. **No step fusion** — if the table says READ → INFER → WRITE, you must do three separate actions. Do not combine multiple steps into one.
 
-## Phase Execution as Tasks/Sub-agents
+4. **Scene completion is binary** — a scene is only done when ALL its logic steps have finished AND ALL output files exist with full content. Do not proceed to the next scene until current one is fully complete.
 
-Each phase should be executed as an independent task or sub-agent, with clear inputs and outputs. Use `runSubagent` to invoke specialized agents for each phase.
+5. **No output truncation** — every output file must contain the full analysis. Never write "TODO", "in progress", "see above", or any placeholder.
 
-### Phase 0 Task: Archetype Detection
-**Input**: Raw PDF markdown content
-**Reference**: [phase-0-archetype-detection.md](phase-0-archetype-detection.md)
-**Agent Configuration**:
+6. **Self-check before completion** — before marking any scene done, verify: (a) every logic step ran, (b) every output file exists with substantive content, (c) every claim references a source line in mineru markdown.
+
+7. **Language compliance** — ALL output files MUST be written in the configured language. The configured language is propagated to every scene and sub-agent. Do NOT mix languages in output files.
+
+### Execution Guardrails
+1. **Scene isolation**: Each scene independently executable given its preconditions
+2. **No hallucination propagation**: AUDIT_REPORT.md must flag unsupported claims; CONCLUSION_CARD.md must downgrade confidence accordingly
+3. **Source grounding**: Every output claim references specific mineru markdown location
+4. **LaTeX preservation**: Never corrupt inline (`$...$`) or block (`$$...$$`) LaTeX
+5. **Meta-track independence**: output-audit agent shares NO context with primary analysis agents
+6. **Language compliance**: ALL output files MUST be written in the configured language (`en` or `zh`). Source material (mineru markdown) stays in original language.
+
+### Prerequisites
+- **Input**: Path to mineru-processed PDF markdown (or equivalent structured markdown with LaTeX and tables preserved)
+- **Skills**: pdf-figure-extractor, superpowers:dispatching-parallel-agents
+- **Tools**: mineru MCP (for initial PDF→markdown, external to this skill)
+
+### Archetype Definitions
+Six archetypes from `archetype-logic-vault.md`:
+| Archetype | Primary Focus | Secondary Focus |
+|-----------|--------------|-----------------|
+| THEORY | Mathematical Axioms | Logical Consistency |
+| ALGO | Architecture Delta (Δ) | Complexity O(N) |
+| DATA | Sampling Diversity | Label Reliability |
+| APP | Industrial Bottleneck | Practical Speedup |
+| BENCH | Metric Validity | Baseline Fairness |
+| REVIEW | Research White-space | Milestone Timeline |
+
+### Execution Pattern
+1. **L0**: PREPARE → classify archetype → emit archetype.json (auto)
+2. **L1**: ACQUIRE → quick scan + section analysis → emit summaries (auto)
+3. **Gate**: Present L1 findings to user; ask to proceed to L2
+4. **L2**: Parallel tech-stack + ref-lineage + evidence-check → emit deep analyses (manual)
+5. **Gate**: Present L2 findings to user; ask to proceed to L3
+6. **L3**: Parallel primary + meta tracks → consistency-audit + output-audit → conclusion (auto within L3)
+
+### Deliverables
+| File | Scene | Description |
+|------|-------|-------------|
+| archetype.json | PREPARE | Machine-readable classification |
+| SUMMARY_CARD.md | ACQUIRE | Executive summary |
+| FIGURE_LOGS.md | ACQUIRE | Figure-by-figure analysis |
+| SECTION_SUMMARIES.md | REASON (section) | 4-quadrant chapter analysis |
+| METHODOLOGY_CARD.md | REASON (tech-stack) | Technical pipeline |
+| REFERENCE_MAP.md | REASON (ref-lineage) | Citation lineage |
+| REVIEW_CARD.md | VERIFY (consistency) | Academic audit |
+| AUDIT_REPORT.md | VERIFY (output-audit) | Quality assessment |
+| CONCLUSION_CARD.md | FINALIZE | Final verdict |
+
+### Task/Agent Configuration
+Each scene is executed as an independent task or sub-agent, with clear inputs and outputs. Use `runSubagent` to invoke specialized agents per scene.
+
+**L0 Dispatch — PREPARE (mandatory, no skip):**
 ```
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-0",
+  agentName: "academic-paper-interpreter-l0-prepare",
   description: "Classify paper archetype",
-  prompt: "Classify the paper into one of 6 archetypes. See phase-0-archetype-detection.md for detailed instructions."
+  prompt: "⛔ EXECUTE FULLY — NO SHORTCUTS. Read the full scene-prepare.md instructions, then execute EVERY logic step (P0→P4) in order. Write the complete archetype.json to disk. All output in {language}. Do NOT skip any step."
 })
 ```
-**Output**: `archetype.json` with classification and priority flags
 
-### Phase 1 Task: Reconnaissance (Visual-First)
-**Input**: PDF content + archetype classification from Phase 0
-**Reference**: [phase-1-reconnaissance.md](phase-1-reconnaissance.md)
-**Skills**: Uses `pdf-figure-extractor` for image extraction
-**Agent Configuration**:
+**L1 Dispatch (sequential, both mandatory):**
 ```
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-1",
-  description: "Extract visual insights and create summary with embedded figures",
-  prompt: "Execute Phase 1 reconnaissance. See phase-1-reconnaissance.md for execution details."
+  agentName: "academic-paper-interpreter-l1-quick-scan",
+  description: "Extract summary and figures",
+  prompt: "⛔ EXECUTE FULLY — NO SHORTCUTS. Read scenes/scene-quick-scan.md, execute EVERY logic step (Q0→Q5) in order. Write both SUMMARY_CARD.md and FIGURE_LOGS.md to disk with full content. All output in {language}. Do NOT skip any step, do NOT produce placeholders."
+})
+
+runSubagent({
+  agentName: "academic-paper-interpreter-l1-section-analysis",
+  description: "Analyze paper sections",
+  prompt: "⛔ EXECUTE FULLY — NO SHORTCUTS. Read scenes/scene-section-analysis.md, execute EVERY logic step (S0→S4) in order. Dispatch sub-agents for each selected section, consolidate results, write complete SECTION_SUMMARIES.md. All output in {language}. Do NOT skip any step."
 })
 ```
-**Output**: `SUMMARY_CARD.md`, `FIGURE_LOGS.md` (with extracted figure images), `figures/` directory
 
-### Phase 2 Task: Structural Decomposition (Sub-agent Swarm)
-**Input**: PDF content + archetype + Phase 1 outputs
-**Reference**: [phase-2-structural-decomposition.md](phase-2-structural-decomposition.md)
-**Agent Configuration**:
+**L2 Dispatch (parallel, after manual gate — ALL THREE mandatory):**
 ```
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-2",
-  description: "Decompose sections into four quadrants",
-  prompt: "Execute Phase 2 structural decomposition with parallel sub-agents. See phase-2-structural-decomposition.md for execution details."
+  agentName: "academic-paper-interpreter-l2-tech-stack",
+  description: "Deconstruct technical pipeline",
+  prompt: "⛔ EXECUTE FULLY. Read scenes/scene-tech-stack.md, execute EVERY logic step (T0→T3) in order. Write METHODOLOGY_CARD.md to disk. All output in {language}. No shortcuts."
+})
+
+runSubagent({
+  agentName: "academic-paper-interpreter-l2-ref-lineage",
+  description: "Map reference ecosystem",
+  prompt: "⛔ EXECUTE FULLY. Read scenes/scene-ref-lineage.md, execute EVERY logic step (R0→R3) in order. Write REFERENCE_MAP.md to disk. All output in {language}. No shortcuts."
+})
+
+runSubagent({
+  agentName: "academic-paper-interpreter-l2-evidence-check",
+  description: "Cross-validate figures and claims",
+  prompt: "⛔ EXECUTE FULLY. Read scenes/scene-evidence-check.md, execute EVERY logic step (E0→E2) in order. Append validation marks to SECTION_SUMMARIES.md. All output in {language}. No shortcuts."
 })
 ```
-**Output**: `SECTION_SUMMARIES.md` with quadrant-based analysis
 
-### Phase 3 Task: Technical Archeology
-**Input**: PDF content + archetype + Phase 2 outputs
-**Reference**: [phase-3-technical-archeology.md](phase-3-technical-archeology.md)
-**Agent Configuration**:
+**L3 Dispatch (parallel, after manual gate — BOTH tracks + conclusion):**
 ```
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-3",
-  description: "Map technical stack and references",
-  prompt: "Execute Phase 3 technical archeology. See phase-3-technical-archeology.md for execution details."
+  agentName: "academic-paper-interpreter-l3-consistency-audit",
+  description: "Full peer-review audit",
+  prompt: "⛔ EXECUTE FULLY. Read scenes/scene-consistency-audit.md, execute EVERY logic step (A0→A3) in order. Write REVIEW_CARD.md to disk. All output in {language}. No shortcuts."
 })
-```
-**Output**: `METHODOLOGY_CARD.md`, `REFERENCE_MAP.md`
 
-### Phase 4 Task: Consistency Audit
-**Input**: All previous outputs + PDF content
-**Reference**: [phase-4-consistency-audit.md](phase-4-consistency-audit.md)
-**Agent Configuration**:
-```
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-4",
-  description: "Validate robustness and detect logical leaps",
-  prompt: "Execute Phase 4 consistency audit. See phase-4-consistency-audit.md for execution details."
+  agentName: "academic-paper-interpreter-l3-output-audit",
+  description: "Meta-track quality audit (fully independent agent)",
+  prompt: "⛔ EXECUTE FULLY as INDEPENDENT meta-track agent. Read scenes/scene-output-audit.md, execute EVERY logic step (O0→O4) in order. Do NOT share context with primary track. Write AUDIT_REPORT.md to disk. All output in {language}. No shortcuts."
 })
-```
-**Output**: `REVIEW_CARD.md`
 
-### Phase 5 Task: Conclusion Synthesis
-**Input**: All previous phase outputs
-**Reference**: [phase-5-conclusion-synthesis.md](phase-5-conclusion-synthesis.md)
-**Agent Configuration**:
-```
+// After BOTH primary and meta tracks complete:
 runSubagent({
-  agentName: "academic-paper-interpreter-phase-5",
-  description: "Synthesize final recommendations",
-  prompt: "Execute Phase 5 conclusion synthesis. See phase-5-conclusion-synthesis.md for execution details."
+  agentName: "academic-paper-interpreter-l3-conclusion",
+  description: "Synthesize final verdict",
+  prompt: "⛔ EXECUTE FULLY. Read scenes/scene-conclusion.md, execute EVERY logic step (C0→C4) in order. Read both REVIEW_CARD.md and AUDIT_REPORT.md, resolve conflicts, write CONCLUSION_CARD.md to disk. All output in {language}. No shortcuts."
 })
 ```
-**Output**: `CONCLUSION_CARD.md`
-
-## Sequential Task Orchestration
-Execute phases in order with context passing:
-1. Run Phase 0, capture archetype output
-2. Pass archetype to Phase 1, capture summary outputs
-3. Pass Phase 1 + archetype to Phase 2, capture section summaries
-4. Pass Phase 2 + archetype to Phase 3, capture methodology/references
-5. Pass all outputs to Phase 4, capture review findings
-6. Pass all outputs to Phase 5, generate final verdict
-
-## Parallel Sub-agent Execution (Phase 2)
-For Phase 2, dispatch multiple sub-agents in parallel:
-- One sub-agent per major section (Introduction, Methods, Results, Discussion, etc.)
-- Each sub-agent analyzes its section through Fact-Method-Data-Claim quadrants
-- Quadrant boost priorities set by archetype classification
-- Collect and consolidate results into unified SECTION_SUMMARIES.md
